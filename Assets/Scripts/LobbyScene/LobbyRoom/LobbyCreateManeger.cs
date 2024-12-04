@@ -1,7 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
-
+using API;
 public class LobbyCreationManager : MonoBehaviour
 {
     // References to UI elements
@@ -16,6 +16,7 @@ public class LobbyCreationManager : MonoBehaviour
     public Button cancelButton;              
     public LobbyManager lobbyManager;         // Reference to the LobbyManager script
 
+    public GameClientAPI myapi; 
     private string lobbyPlaceholder = "Enter lobby name..."; // Placeholder for lobby name
     private string passwordPlaceholder = "Enter password..."; // Placeholder for password
 
@@ -25,9 +26,18 @@ public class LobbyCreationManager : MonoBehaviour
         passwordToggle.onValueChanged.AddListener(OnPasswordToggleChanged);
         submitButton.onClick.AddListener(OnSubmit);
         cancelButton.onClick.AddListener(OnCancel);
-
+        myapi = GameClientAPI.GetInstance();
         // Initially hide reminder texts and disable password input
         ResetInputs();
+    }
+
+    void Update(){
+        while (myapi.LobbyQ.TryDequeue(out string message))
+        {
+            string name = message.Split(' ')[0];
+            string havePassword = message.Split(' ')[1];
+            lobbyManager.CreateLobby(name, havePassword != "null");
+        }
     }
 
     // Toggle password input visibility
@@ -74,7 +84,15 @@ public class LobbyCreationManager : MonoBehaviour
             // Switch canvases
             lobbyCreationCanvas.SetActive(false);
             lobbyCenterCanvas.SetActive(true);
-            lobbyManager.CreateLobby(lobbyNameInput.text, passwordInput.text);
+            string prefix = "lobbyCreation ";
+            string hasPassword = "null";
+            if(passwordToggle.isOn){
+                hasPassword = "notnull";
+            }
+            string tup = lobbyNameInput.text + " " + hasPassword;
+            GameClientAPI.GetInstance().sendMessage2Chat(prefix + tup);
+            //bool havePassword = (passwordInput.text != null);
+            //lobbyManager.CreateLobby(lobbyNameInput.text, havePassword);
             // Reset inputs after switching back
             ResetInputs();
         }

@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using UnityEditor.VersionControl;
 using UnityEngine;
 namespace API{
     public class GameClientAPI
@@ -21,6 +22,7 @@ namespace API{
         private string hostName;
         private static GameClientAPI instance = new GameClientAPI(2000, 3000);
         private ConcurrentQueue<string> messageQ = new ConcurrentQueue<string>();
+        private ConcurrentQueue<string> lobbyQ = new ConcurrentQueue<string>();
 
         public static GameClientAPI GetInstance(int tcp = 2000, int udp = 3000)
         {
@@ -33,6 +35,10 @@ namespace API{
 
         public ConcurrentQueue<string> MessageQ{
             get => messageQ;
+        }
+
+        public ConcurrentQueue<string> LobbyQ{
+            get => lobbyQ;
         }
 
         Socket chatSocket; 
@@ -125,7 +131,16 @@ namespace API{
                 byte[] buffer = new byte[1024];
                 int receivedBytes = chatSocket.Receive(buffer);
                 string response = Encoding.UTF8.GetString(buffer, 0, receivedBytes);
-                messageQ.Enqueue(response);
+                string header = response.Split(' ')[0];
+                int indexOf = response.IndexOf(' ');
+                response = response.Substring(indexOf+1);
+                if(header == "chat"){
+                    messageQ.Enqueue(response);
+                }
+                else if(header == "lobbyCreation"){
+                    lobbyQ.Enqueue(response);
+                }
+                Debug.Log("message: " + response);
             }
         }
 
