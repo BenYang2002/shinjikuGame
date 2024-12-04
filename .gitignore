@@ -1,0 +1,18 @@
+# Unity-specific folders to ignore
+/Library/
+/Temp/
+/Logs/
+/UserSettings/
+
+# Visual Studio or IDE-specific files to ignore
+*.csproj
+*.sln
+*.unityproj
+
+# OS-generated files to ignore
+.DS_Store
+Thumbs.db
+
+# Build folders
+Build/
+Builds/
