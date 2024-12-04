@@ -20,10 +20,12 @@ namespace API{
         private Socket chatServerSocket;
         private int maxPlayer = 0;
         volatile private Queue<string> messageQueue = new Queue<string>();
+        volatile private Queue<Tuple<string,string>> lobbyQueue = new Queue<Tuple<string, string>>();
         private Dictionary<string, Socket> clientSockets = new Dictionary<string, Socket>();
         private System.Object lockerMsg = new System.Object();
         private System.Object lockerDictionary = new System.Object();
         private System.Object lockuserChatTCPList = new System.Object();
+        private System.Object lockLobbyQueue = new System.Object();
         public GameServerAPI(int maxPlayerNum){
             maxPlayer = maxPlayerNum;
         }
@@ -119,12 +121,27 @@ namespace API{
                 }
                 while(true){
                     byteRead = clientSocket.Receive(buffer);
-                    string message = userName + " : " + Encoding.UTF8.GetString(buffer,0,byteRead);
-                    Debug.Log(message);
-                    lock(lockerMsg){ // lock to synchronize
-                        messageQueue.Enqueue(message);
-                        Monitor.Pulse(lockerMsg);
-                        Debug.Log("new message added " + messageQueue.Count);
+                    string message = Encoding.UTF8.GetString(buffer,0,byteRead);
+                    string header = message.Split(' ')[0];
+                    if(header == "chat"){
+                        int spaceIndex = message.IndexOf(' ');
+                        message = message.Substring(spaceIndex + 1);
+                        message = userName + " : " + Encoding.UTF8.GetString(buffer,0,byteRead);
+                        Debug.Log(message);
+                        lock(lockerMsg){ // lock to synchronize
+                            messageQueue.Enqueue(message);
+                            Monitor.Pulse(lockerMsg);
+                            Debug.Log("new message added " + messageQueue.Count);
+                        }
+                    }
+                    else if(header == "lobbyCreation"){
+                        int spaceIndex = message.IndexOf(' ');
+                        message = message.Substring(spaceIndex + 1); // get rid of header
+                        spaceIndex = message.IndexOf(' ');
+                        string lobbyName = message.Substring(0 , spaceIndex);
+                        string passWord = message.Substring(spaceIndex + 1);
+                        Tuple<string,string> tuple = new Tuple<string, string>(lobbyName,passWord);
+                        lobbyQueue.Enqueue(tuple);
                     }
                 }
             }

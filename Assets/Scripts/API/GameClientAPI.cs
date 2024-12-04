@@ -16,10 +16,10 @@ namespace API{
         private const int timeout = 1000;
         private const int MAXRETRY = 3;
         private int serverChatPort;
-        volatile bool chatConnected = false;
+        volatile static bool chatConnected = false;
 
         private string hostName;
-        private static GameClientAPI instance;
+        private static GameClientAPI instance = new GameClientAPI(2000, 3000);
         private ConcurrentQueue<string> messageQ = new ConcurrentQueue<string>();
 
         public static GameClientAPI GetInstance(int tcp = 2000, int udp = 3000)

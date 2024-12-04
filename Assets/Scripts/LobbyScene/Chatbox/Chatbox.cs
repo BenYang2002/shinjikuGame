@@ -62,9 +62,10 @@ public class Chatbox : MonoBehaviour
             TextMeshProUGUI messageText = newMessage.GetComponent<TextMeshProUGUI>();
             if (messageText != null)
             {
-                messageText.text = chatInputField.text;
+                messageText.text = "You: " + chatInputField.text;
                 messageText.enabled = true;
-                GameClientAPI.GetInstance().sendMessage2Chat(chatInputField.text);
+                string msg = "chat " + chatInputField.text; // add the chat prefix
+                GameClientAPI.GetInstance().sendMessage2Chat(msg);
             }
 
             // Clear the input field

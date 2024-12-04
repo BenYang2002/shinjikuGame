@@ -58,7 +58,8 @@ public class StartButtonHandler : MonoBehaviour
             udpListener.IsBackground = true;
             udpListener.Start();
         }
-        return myapi.ChatConnected;
+        Debug.Log("myapi.ChatConnected" + myapi.ChatConnected);
+        return findServer;
     }
 
     private void OnSubmitButtonPressed()
