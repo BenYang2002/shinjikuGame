@@ -1,5 +1,7 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.SocialPlatforms.GameCenter;
+using API;
 
 public class TugOfWarManager : MonoBehaviour
 {
@@ -9,7 +11,6 @@ public class TugOfWarManager : MonoBehaviour
 
     public float moveStep = 10f;             // Amount the image moves per score
     public float maxDistance = 300f;         // Maximum distance before someone wins
-
     private int yourScore = 0;
     private int opponentScore = 0;
     private float currentPosition = 0f;      // Tracks the current horizontal position of the image
@@ -26,6 +27,7 @@ public class TugOfWarManager : MonoBehaviour
         {
             yourScore++;
             currentPosition -= moveStep; // Move image left
+            GameClientAPI.GetInstance().sendMessage2Chat("start");
             UpdateUI();
         }
 

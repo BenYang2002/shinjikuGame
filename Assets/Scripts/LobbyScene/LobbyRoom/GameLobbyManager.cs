@@ -1,7 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-
+using UnityEngine.SceneManagement;
+using API;
 public class GameLobbyManager : MonoBehaviour
 {
     // UI Elements
@@ -127,7 +128,19 @@ public class GameLobbyManager : MonoBehaviour
     void BeginGame()
     {
         Debug.Log("All players are ready! Starting the game...");
-        // Implement your game start logic here
+        GameClientAPI myapi = GameClientAPI.GetInstance();
+        // Ensure the target scene is added to the build settings
+        string gameSceneName = "GameScene"; // Replace with your game scene's name
+        myapi.sendMessage2Chat("startGame");
+        if (SceneManager.GetSceneByName(gameSceneName) != null)
+        {
+            // Load the game scene
+            SceneManager.LoadScene(gameSceneName);
+        }
+        else
+        {
+            Debug.LogError($"Scene '{gameSceneName}' not found! Make sure it is added to the build settings.");
+        }
     }
 
     // Call this method when a player enters the lobby

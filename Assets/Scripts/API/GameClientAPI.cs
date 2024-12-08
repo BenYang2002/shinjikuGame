@@ -23,6 +23,7 @@ namespace API{
         private static GameClientAPI instance = new GameClientAPI(2000, 3000);
         private ConcurrentQueue<string> messageQ = new ConcurrentQueue<string>();
         private ConcurrentQueue<string> lobbyQ = new ConcurrentQueue<string>();
+        private ConcurrentQueue<string> pressingQ = new ConcurrentQueue<string>();
 
         public static GameClientAPI GetInstance(int tcp = 2000, int udp = 3000)
         {
@@ -139,6 +140,9 @@ namespace API{
                 }
                 else if(header == "lobbyCreation"){
                     lobbyQ.Enqueue(response);
+                }
+                else if(header == "one"){
+                    pressingQ.Enqueue(response);
                 }
                 Debug.Log("message: " + response);
             }
