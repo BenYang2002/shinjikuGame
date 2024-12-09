@@ -27,7 +27,7 @@ public class TugOfWarManager : MonoBehaviour
         {
             yourScore++;
             currentPosition -= moveStep; // Move image left
-            GameClientAPI.GetInstance().sendMessage2Chat("start");
+            GameClientAPI.GetInstance().sendTCPMessage2Server("start");
             UpdateUI();
         }
 

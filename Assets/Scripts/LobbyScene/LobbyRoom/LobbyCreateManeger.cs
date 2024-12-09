@@ -2,6 +2,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using API;
+using System;
 public class LobbyCreationManager : MonoBehaviour
 {
     // References to UI elements
@@ -32,12 +33,7 @@ public class LobbyCreationManager : MonoBehaviour
     }
 
     void Update(){
-        while (myapi.LobbyQ.TryDequeue(out string message))
-        {
-            string name = message.Split(' ')[0];
-            string havePassword = message.Split(' ')[1];
-            lobbyManager.CreateLobby(name, havePassword != "null");
-        }
+
     }
 
     // Toggle password input visibility
@@ -85,12 +81,8 @@ public class LobbyCreationManager : MonoBehaviour
             lobbyCreationCanvas.SetActive(false);
             lobbyCenterCanvas.SetActive(true);
             string prefix = "lobbyCreation ";
-            string hasPassword = "null";
-            if(passwordToggle.isOn){
-                hasPassword = "notnull";
-            }
-            string tup = lobbyNameInput.text + " " + hasPassword;
-            GameClientAPI.GetInstance().sendMessage2Chat(prefix + tup);
+            LobbyInfo newLobby = new LobbyInfo(lobbyNameInput.text, passwordToggle.isOn ? "private" : "public");
+            GameClientAPI.GetInstance().sendTCPMessage2Server(prefix + newLobby.ToJson());
             //bool havePassword = (passwordInput.text != null);
             //lobbyManager.CreateLobby(lobbyNameInput.text, havePassword);
             // Reset inputs after switching back

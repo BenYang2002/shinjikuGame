@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      TugOfWarBackground_0: 2771141376708472541
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

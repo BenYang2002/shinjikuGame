@@ -13,8 +13,8 @@ public class Chatbox : MonoBehaviour
     private void Start()
     {
         myapi = GameClientAPI.GetInstance();
-        if(myapi.ChatConnected){
-            myapi.storeDisplayMsg();
+        if(myapi.ThisUser.Connected){
+            //myapi.storeDisplayMsg();
         }else{
             Debug.LogError("failed to connect to the chat server");
         }
@@ -62,10 +62,8 @@ public class Chatbox : MonoBehaviour
             TextMeshProUGUI messageText = newMessage.GetComponent<TextMeshProUGUI>();
             if (messageText != null)
             {
-                messageText.text = "You: " + chatInputField.text;
-                messageText.enabled = true;
-                string msg = "chat " + chatInputField.text; // add the chat prefix
-                GameClientAPI.GetInstance().sendMessage2Chat(msg);
+                string msg = "chat " + " " + myapi.ThisUser.UserName + ": " + chatInputField.text; // add the chat prefix
+                GameClientAPI.GetInstance().sendTCPMessage2Server(msg);
             }
 
             // Clear the input field

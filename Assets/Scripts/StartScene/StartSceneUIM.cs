@@ -14,7 +14,7 @@ public class StartButtonHandler : MonoBehaviour
     public Button submitButton; // Assign the Submit Button in the Inspector
     public GameObject startBackground;
 
-    private GameClientAPI myapi;
+    private GameClientAPI myapi = GameClientAPI.GetInstance();
     private TcpClient clientSocket;
 
     private void Start()
@@ -40,6 +40,7 @@ public class StartButtonHandler : MonoBehaviour
             startBackground.SetActive(false);
             startButton.gameObject.SetActive(false);
             usernamePanel.SetActive(true);
+            myapi.TCPListen();
         }
         else
         {
@@ -51,29 +52,33 @@ public class StartButtonHandler : MonoBehaviour
 
     private bool ConnectToServer()
     {
-        myapi = GameClientAPI.GetInstance(2000,3000);
+        myapi = GameClientAPI.GetInstance();
         bool findServer = myapi.register();
-        if(findServer){
-            Thread udpListener = new Thread(myapi.UDPListen);
-            udpListener.IsBackground = true;
-            udpListener.Start();
+        if(findServer)
+        {
+            Debug.Log("client has connected to server through TCP");
         }
-        Debug.Log("myapi.ChatConnected" + myapi.ChatConnected);
+        else
+        {
+            Debug.Log("client failed to connnect to server through TCP");
+        }
         return findServer;
     }
 
     private void OnSubmitButtonPressed()
     {
         string username = usernameInputField.text;
-
+        myapi.ThisUser.UserName = username; 
         if (string.IsNullOrEmpty(username))
         {
             Debug.LogWarning("Username cannot be empty.");
             return;
         }
-        myapi.sendMessage2Chat(username);
+        string prefix = new string("username");
+        string message = prefix + " " + myapi.ThisUser.DeviceName + " " + username + " " + myapi.ThisUser.TcpPort + " " + myapi.ThisUser.UdpPort ;
+        myapi.sendTCPMessage2Server(message);
 
-        Debug.Log($"Username submitted: {username}");
+        Debug.Log($"Username submitted: {message}");
 
         // Here, you can send the username to the server if needed
         // Example: SendUsernameToServer(username);
@@ -82,21 +87,4 @@ public class StartButtonHandler : MonoBehaviour
         SceneManager.LoadScene("LobbyScene"); // Ensure the Lobby scene is added in Build Settings
     }
 
-    // Optional: Method to send username to the server
-    private void SendUsernameToServer(string username)
-    {
-        try
-        {
-            if (clientSocket != null && clientSocket.Connected)
-            {
-                byte[] buffer = System.Text.Encoding.UTF8.GetBytes(username);
-                clientSocket.GetStream().Write(buffer, 0, buffer.Length);
-                Debug.Log("Username sent to the server.");
-            }
-        }
-        catch (SocketException ex)
-        {
-            Debug.LogError($"Failed to send username: {ex.Message}");
-        }
-    }
 }

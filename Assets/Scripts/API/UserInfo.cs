@@ -2,14 +2,18 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
-namespace API{
-    public class UserInfo{
+namespace API
+{
+    public class UserInfo
+    {
         private string userName;
         private string deviceName;
         private int tcpPort;
         private int udpPort;
         bool chatConnected;
-        public UserInfo(string name, int tcp, int udp){
+        Socket clientSocket;
+        public UserInfo(string name, int tcp, int udp)
+        {
             deviceName = name;
             tcpPort = tcp;
             udpPort = udp;
@@ -38,6 +42,18 @@ namespace API{
         {
             get => chatConnected;
             set => chatConnected = value;
+        }
+
+        public Socket ClientSocket
+        {
+            get => clientSocket;
+            set => clientSocket = value;
+        }
+
+        public string UserName
+        {
+            get => userName;
+            set => userName = value;
         }
     }
 }

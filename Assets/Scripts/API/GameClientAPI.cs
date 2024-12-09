@@ -5,27 +5,68 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using JetBrains.Annotations;
+using NUnit.Framework.Constraints;
+using UnityEditor.PackageManager.Requests;
 using UnityEditor.VersionControl;
 using UnityEngine;
 namespace API{
     public class GameClientAPI
     {
+
         private const string prefix = "ZombieGameShinjuku";
-        private int serverPort = 1059;
+        private string hostName;
+        private int serverUDPPort = 1059;
+        private const int timeout = 1000;
         private int clientTCPPort = 2059;
         private int clientUDPPort = 2060;
-        private const int timeout = 1000;
         private const int MAXRETRY = 3;
-        private int serverChatPort;
-        volatile static bool chatConnected = false;
-
-        private string hostName;
-        private static GameClientAPI instance = new GameClientAPI(2000, 3000);
+        private int serverTCPPort;
+        private UserInfo thisUser = null;
+        private static GameClientAPI instance = null;
         private ConcurrentQueue<string> messageQ = new ConcurrentQueue<string>();
-        private ConcurrentQueue<string> lobbyQ = new ConcurrentQueue<string>();
-        private ConcurrentQueue<string> pressingQ = new ConcurrentQueue<string>();
+        private List<LobbyInfo> lobbyList = new List<LobbyInfo>();
+        private System.Object lockLobbyList = new System.Object();
+        private bool updateLobbyList = false;
+        private System.Object lockUpdateLobbyList = new System.Object();
+        public bool UpdateLobbyList
+        {
+            get
+            {
+                lock (lockUpdateLobbyList)
+                {
+                    return updateLobbyList;
+                }
+            }
+            set
+            {
+                lock (lockLobbyList)
+                {
+                    updateLobbyList = value;
+                }
+            }
+        }
 
-        public static GameClientAPI GetInstance(int tcp = 2000, int udp = 3000)
+        public List<LobbyInfo> LobbyList
+        {
+            get
+            {
+                lock (lockLobbyList) 
+                {
+                    return lobbyList;
+                }
+            }
+        }
+        public int ClientTCPPort
+        {
+            get => clientTCPPort;
+        }
+        public int ClientUDPPort
+        {
+            get => clientUDPPort;
+        }
+
+        public static GameClientAPI GetInstance(int tcp = 2059, int udp = 2060)
         {
             if (instance == null)
             {
@@ -38,27 +79,21 @@ namespace API{
             get => messageQ;
         }
 
-        public ConcurrentQueue<string> LobbyQ{
-            get => lobbyQ;
+        Socket clientTCPSocket; 
+
+        private GameClientAPI(int tcp,int udp){
+            thisUser = new UserInfo(Dns.GetHostName(), tcp, udp);
         }
 
-        Socket chatSocket; 
-
-        public GameClientAPI(int tcpPort,int udpPort){
-            clientTCPPort = tcpPort;
-            clientUDPPort = udpPort;
-        }
-
-        public bool ChatConnected{
-            get => chatConnected;
-            set => chatConnected = value;
+        public UserInfo ThisUser{
+            get => thisUser;
         }
         public bool register()
         {
             Socket udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             udpSocket.EnableBroadcast = true;
-            IPEndPoint broadcastEndPoint = new IPEndPoint(IPAddress.Broadcast, serverPort);
-            string message = prefix + " " + Dns.GetHostName() + " " + clientTCPPort.ToString() + " " + clientUDPPort.ToString();
+            IPEndPoint broadcastEndPoint = new IPEndPoint(IPAddress.Broadcast, serverUDPPort);
+            string message = prefix;
             byte[] data = Encoding.UTF8.GetBytes(message);
             byte[] buffer = new byte[1024]; 
             EndPoint serverEndPoint = new IPEndPoint(IPAddress.Any, 0); 
@@ -71,12 +106,14 @@ namespace API{
                     udpSocket.SendTo(data, broadcastEndPoint);
                     Debug.Log("Broadcast message sent.");
                     int receivedBytes = udpSocket.ReceiveFrom(buffer,ref serverEndPoint);
-                    connected = true;
                     string recv = Encoding.UTF8.GetString(buffer, 0, receivedBytes);
-                    Debug.Log(recv);
                     string[] info = recv.Split(' ');
                     hostName = info[0];
-                    serverChatPort = int.Parse(info[1]);
+                    serverTCPPort = int.Parse(info[1]);
+                    UDPListen();
+                    TCPSocketSetup();
+                    connected = ConnectRemoteTCPServer();
+                    thisUser.Connected = connected;
                 }
                 catch (SocketException ex)
                 {
@@ -98,30 +135,50 @@ namespace API{
             return connected;
         }
 
-        public void TCPChatSocketSetup(){
-            chatSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        public void TCPSocketSetup(){
+            clientTCPSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, clientTCPPort);
             try{
-                chatSocket.Bind(localEndPoint);
+                clientTCPSocket.Bind(localEndPoint);
             } catch (Exception ex){
                 Debug.LogError(ex.Message);
             }
         }
 
-        public void connectRemoteChatServer(){
+        public bool ConnectRemoteTCPServer(){
+            try
+            {
                 IPAddress[] addresses = Dns.GetHostAddresses(hostName);
                 IPAddress[] ipv4Addr = Array.FindAll(addresses, addr => addr.AddressFamily == AddressFamily.InterNetwork);
-                chatSocket.Connect(ipv4Addr[0], serverChatPort);
-        }
-
-        public void sendMessage2Chat(string message){
-            if(message != null){
-                byte[] messageBytes = Encoding.UTF8.GetBytes(message);
-                chatSocket.Send(messageBytes);
+                if(ipv4Addr.Length == 0)
+                {
+                    return false;
+                }
+                clientTCPSocket.Connect(ipv4Addr[0], serverTCPPort);
+                thisUser.ClientSocket = clientTCPSocket;
+                return true;
+            }catch(Exception ex){
+                Debug.LogError(ex.Message );
+                return false;
             }
         }
 
-        public void storeDisplayMsg(){
+        public void sendTCPMessage2Server(string message){
+            try
+            {
+                if (message != null)
+                {
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+                    clientTCPSocket.Send(messageBytes);
+                }
+            }catch(Exception ex)
+            {
+                Debug.LogError("sendTCPMessage2Server: " + ex.Message);
+            }
+            
+        }
+
+        /*public void storeDisplayMsg(){
             Thread thread = new Thread(storeDisplayMsgHelper);
             thread.IsBackground = true;
             thread.Start();
@@ -130,7 +187,7 @@ namespace API{
         public void storeDisplayMsgHelper(){
             while(true){
                 byte[] buffer = new byte[1024];
-                int receivedBytes = chatSocket.Receive(buffer);
+                int receivedBytes = clientTCPSocket.Receive(buffer);
                 string response = Encoding.UTF8.GetString(buffer, 0, receivedBytes);
                 string header = response.Split(' ')[0];
                 int indexOf = response.IndexOf(' ');
@@ -146,35 +203,94 @@ namespace API{
                 }
                 Debug.Log("message: " + response);
             }
+        }*/
+        public void TCPListen()
+        {
+            Debug.Log("starting to listen tcp incoming");
+            Thread thread = new Thread(TCPListenHelper);
+            thread.IsBackground = true;
+            thread.Start();
         }
 
-        public void UDPListen(){ 
+        public void TCPListenHelper()
+        {
+            while (true)
+            {
+                byte[] buffer = new byte[1024];
+                int receivedBytes = clientTCPSocket.Receive(buffer);
+                string request = Encoding.UTF8.GetString(buffer, 0, receivedBytes);
+                Debug.Log("received message" + request);
+                string header = request.Split(' ')[0];
+                request = RemoveHeader(request);//remove the header
+                if (header == "chat")
+                {
+                    Debug.Log("received message" + request);
+                    messageQ.Enqueue(request);
+                }
+                else if (header == "lobbyInfo")
+                {
+
+                    string[] lobbyInfos = request.Split(' '); 
+                    lock (lockLobbyList)
+                    {
+                        lobbyList.Clear();
+                        for (int i = 0; i < lobbyInfos.Length - 1; i++)
+                        {
+                            lobbyList.Add(LobbyInfo.FromJson(lobbyInfos[i]));
+                        }
+                    }
+                    lock (lockUpdateLobbyList)
+                    {
+                        updateLobbyList = true;
+                    }
+                }
+            }
+        }
+
+        public string RemoveHeader(string msg)
+        {
+            int spaceIndex = msg.IndexOf(' ');
+            if (spaceIndex == -1)
+            {
+                Console.WriteLine("removeHeader: no header detected");
+            }
+            else
+            {
+                msg = msg.Substring(spaceIndex + 1);
+            }
+            return msg;
+        }
+        public void UDPListen()
+        {
+            Thread thread = new Thread(UDPListenHelper);
+            thread.IsBackground = true;
+            thread.Start();
+        }
+        public void UDPListenHelper(){ 
             Socket udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, clientUDPPort);
             udpSocket.Bind(localEndPoint);
             Debug.Log($"UDP Listener started on port {clientUDPPort}...");
             byte[] buffer = new byte[1024];
-            while (true)
+            try
             {
-                EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-                if(udpSocket.Available > 0) {
-                    int receivedBytes = udpSocket.ReceiveFrom(buffer, ref remoteEndPoint);
-                    string msg = Encoding.UTF8.GetString(buffer,0,receivedBytes);
-                    Debug.Log($"Received from {remoteEndPoint}");
-                    Debug.Log(msg);
-                    string[] msgArr = msg.Split(' ');
-                    string serverHeader = msgArr[0];
-                    if(serverHeader == "establishTCP"){
-                        if(!chatConnected){
-                            TCPChatSocketSetup();
-                            connectRemoteChatServer();
-                            byte[] message = Encoding.UTF8.GetBytes("ack");
-                            udpSocket.SendTo(message,remoteEndPoint);
-                            chatConnected = true;
-                        }
+                while (true)
+                {
+                    EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                    if (udpSocket.Available > 0)
+                    {
+                        int receivedBytes = udpSocket.ReceiveFrom(buffer, ref remoteEndPoint);
+                        string msg = Encoding.UTF8.GetString(buffer, 0, receivedBytes);
+                        string[] msgArr = msg.Split(' ');
+                        string serverHeader = msgArr[0];
+                        msg = RemoveHeader(msg); // removed the header
+                        
                     }
+                    Thread.Sleep(100);
                 }
-                Thread.Sleep(100);
+            } catch(Exception ex)
+            {
+                Debug.LogError("UDPListen: " + ex.Message);
             }
         }
 

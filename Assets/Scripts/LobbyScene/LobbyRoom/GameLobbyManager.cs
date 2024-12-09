@@ -96,7 +96,7 @@ public class GameLobbyManager : MonoBehaviour
         if (lobbyCenterCanvas != null)
         {
             // Update the player count in the lobby prefab
-            LobbyInfo currentLobbyInfo = FindObjectOfType<LobbyInfo>(); // Assuming one lobby at a time
+            Lobby currentLobbyInfo = FindObjectOfType<Lobby>(); // Assuming one lobby at a time
             if (currentLobbyInfo != null)
             {
                 currentLobbyInfo.TotalPlayers = totalPlayers; // Update the count in LobbyInfo
@@ -131,7 +131,7 @@ public class GameLobbyManager : MonoBehaviour
         GameClientAPI myapi = GameClientAPI.GetInstance();
         // Ensure the target scene is added to the build settings
         string gameSceneName = "GameScene"; // Replace with your game scene's name
-        myapi.sendMessage2Chat("startGame");
+        myapi.sendTCPMessage2Server("startGame");
         if (SceneManager.GetSceneByName(gameSceneName) != null)
         {
             // Load the game scene

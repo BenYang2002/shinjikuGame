@@ -2,8 +2,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 namespace API
 {
     public class LobbyInfo
@@ -17,11 +15,15 @@ namespace API
         {
             this.lobbyName = lobbyName;
             this.privacyStatus = privateStatus;
-            playerCount = 1;
+            playerCount = 0;
             readyPlayerCount = 0;
             gameStatus = "waiting";
         }
-
+        public string LobbyName 
+        {
+            get => lobbyName;
+            set => lobbyName = value;
+        }
         public int PlayerCount
         {
             get => playerCount;
@@ -33,7 +35,11 @@ namespace API
             get => readyPlayerCount;
             set => readyPlayerCount = value;
         }
-
+        public string PrivacyStatus
+        {
+            get => privacyStatus;
+            set => privacyStatus = value;
+        }
         public string GameStatus
         {
             get => gameStatus;
@@ -52,15 +58,15 @@ namespace API
         }
 
         // Reconstruct object from JSON string
-        public LobbyInfo FromJson(string json)
+        static public LobbyInfo FromJson(string json)
         {
             string[] fields = json.Split(';');
             string lobby = fields[0].Split(':')[1];
             string playercount = fields[1].Split(':')[1];
             string readyplayercount = fields[2].Split(':')[1];
             string privacystatus = fields[3].Split(':')[1];
-            string gameStatus = fields[4].Split(':')[1];
-            LobbyInfo newLobby = new LobbyInfo(lobby, privacyStatus);
+            string gameStatus = fields[4].Split(':')[1].Replace(" ", "");
+            LobbyInfo newLobby = new LobbyInfo(lobby, privacystatus);
             newLobby.PlayerCount = int.Parse(playercount);
             newLobby.ReadyPlayerCount = int.Parse(readyplayercount);
             newLobby.GameStatus = gameStatus;
