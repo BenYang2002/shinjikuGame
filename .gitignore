@@ -2,17 +2,23 @@
 /Library/
 /Temp/
 /Logs/
-/UserSettings/
+UserSettings/
 
 # Visual Studio or IDE-specific files to ignore
-*.csproj
-*.sln
-*.unityproj
+.vs/              
+*.csproj         
+*.sln           
+*.unityproj       
 
 # OS-generated files to ignore
-.DS_Store
-Thumbs.db
+.DS_Store         
+Thumbs.db         
 
 # Build folders
 Build/
 Builds/
+
+# Unity crash logs and memory captures
+*.pidb
+*.svd
+MemoryCaptures/
