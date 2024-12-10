@@ -244,6 +244,10 @@ namespace API{
                         updateLobbyList = true;
                     }
                 }
+                else if(header == "hitting")
+                {
+                    
+                }
             }
         }
 

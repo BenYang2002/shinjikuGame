@@ -83,9 +83,6 @@ public class LobbyCreationManager : MonoBehaviour
             string prefix = "lobbyCreation ";
             LobbyInfo newLobby = new LobbyInfo(lobbyNameInput.text, passwordToggle.isOn ? "private" : "public");
             GameClientAPI.GetInstance().sendTCPMessage2Server(prefix + newLobby.ToJson());
-            //bool havePassword = (passwordInput.text != null);
-            //lobbyManager.CreateLobby(lobbyNameInput.text, havePassword);
-            // Reset inputs after switching back
             ResetInputs();
         }
     }

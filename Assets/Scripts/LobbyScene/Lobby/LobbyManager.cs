@@ -26,11 +26,12 @@ public class LobbyManager : MonoBehaviour
         {
             ClearLobbies();
             List<LobbyInfo> list = myapi.LobbyList;
-            for (int i = 0; i < list.Count; i++) 
+            for (int i = 0; i < list.Count; i++)
             {
                 CreateLobby(list[i]);
             }
             myapi.UpdateLobbyList = false;
+            gameLobbyManager.ShouldUpdate = true;
         }
     }
     private void ClearLobbies()
@@ -64,18 +65,9 @@ public class LobbyManager : MonoBehaviour
         }
 
         // Initialize the LobbyInfo data
-        lobbyInfo.LobbyName = lobby.LobbyName;
-        lobbyInfo.TotalPlayers = lobby.PlayerCount;
-        lobbyInfo.ReadyPlayers = lobby.ReadyPlayerCount;
+        lobbyInfo.lobbyInfo = lobby;
         lobbyInfo.MaxPlayers = maxPlayers;
-        if (lobby.PrivacyStatus == "private")
-        {
-            lobbyInfo.IsPrivate = true;
-        }
-        else
-        {
-            lobbyInfo.IsPrivate = false;
-        }
+
         // Assign player count and ready count references to LobbyInfo for dynamic updates
         lobbyInfo.playerCountText = newLobby.transform.Find("PlayerCount").GetComponent<TextMeshProUGUI>();
         lobbyInfo.gameStatusText = newLobby.transform.Find("GameStatus").GetComponent<TextMeshProUGUI>();
@@ -94,19 +86,27 @@ public class LobbyManager : MonoBehaviour
 
     private void OnLobbyClicked(GameObject lobby, Lobby lobbyInfo)
     {
-        Debug.Log($"Lobby '{lobbyInfo.LobbyName}' clicked.");
+        Debug.Log($"Lobby '{lobbyInfo.lobbyInfo.LobbyName}' clicked.");
 
         // Increment the total players for this lobby
-        lobbyInfo.TotalPlayers++;
+        lobbyInfo.lobbyInfo.PlayerCount++;
+        string prefix = "lobbyModify";
+        string name = lobbyInfo.lobbyInfo.LobbyName;
+        string field = "playercount";
+        int val = lobbyInfo.lobbyInfo.PlayerCount;
+        string value = val.ToString();
+        myapi.sendTCPMessage2Server(prefix + " " + name + " " + field + " " + value);//notify the server about the change to broadcast updates
 
         // Update the player count text
-        lobbyInfo.playerCountText.text = $"Player Count: {lobbyInfo.TotalPlayers}/{lobbyInfo.MaxPlayers}";
+        lobbyInfo.playerCountText.text = $"Player Count: {lobbyInfo.lobbyInfo.PlayerCount}/{lobbyInfo.MaxPlayers}";
 
         // Notify GameLobbyManager about the current lobby
         if (gameLobbyManager != null)
         {
             // Set the details in the GameLobbyManager for the selected lobby
-            gameLobbyManager.SetLobbyDetails(lobbyInfo.TotalPlayers, lobbyInfo.ReadyPlayers);
+            gameLobbyManager.LobbyInfo = lobbyInfo.lobbyInfo;
+
+
         }
         else
         {

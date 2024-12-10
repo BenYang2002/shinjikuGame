@@ -2,7 +2,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement;
+using System.Threading;
 using API;
+
 public class GameLobbyManager : MonoBehaviour
 {
     // UI Elements
@@ -12,12 +14,57 @@ public class GameLobbyManager : MonoBehaviour
     public TextMeshProUGUI readyPlayerText; // Text showing "Number of players ready: X / Y"
     public GameObject lobbyCenterCanvas; // Reference to the LobbyCenterCanvas
     public GameObject lobbyCanvas;
-
+    public GameClientAPI myapi;
+    private bool shouldUpdate;
+    public System.Object lockShouldUpdate = new System.Object();
     // Game State
-    private int totalPlayers = 0; // Total players in the lobby
-    private int readyPlayers = 0; // Number of players ready
+    private LobbyInfo lobbyInfo;
     private bool isPlayerReady = false;
-
+    public bool ShouldUpdate
+    {
+        get
+        {
+            lock (lockShouldUpdate)
+            {
+                return shouldUpdate;
+            }
+        }
+        set
+        {
+            lock (lockShouldUpdate)
+            {
+                shouldUpdate = value;
+            }
+        }
+    }
+    public LobbyInfo LobbyInfo
+    {
+        get => lobbyInfo;
+        set => lobbyInfo = value;
+    }
+    private void Update()
+    {
+        if (shouldUpdate)
+        {
+            for (int i = 0; i < myapi.LobbyList.Count; i++)
+            {
+                if (myapi.LobbyList[i].LobbyName == lobbyInfo.LobbyName)
+                {
+                    if (myapi.LobbyList[i].ReadyPlayerCount == 2)
+                    {
+                        BeginGame();
+                    }
+                    else
+                    {
+                        lobbyInfo = myapi.LobbyList[i];
+                        UpdateReadyPlayerText();
+                    }
+                }
+                break;
+            }
+            shouldUpdate = false;
+        }
+    }
     void Start()
     {
         // Initialize the UI state
@@ -32,13 +79,14 @@ public class GameLobbyManager : MonoBehaviour
 
         // Update the initial ready player count
         UpdateReadyPlayerText();
+        myapi = GameClientAPI.GetInstance();
 
         Debug.Log("GameLobbyManager initialized. Waiting for interactions.");
     }
 
     void UpdateReadyPlayerText()
     {
-        readyPlayerText.text = $"Number of players ready: {readyPlayers} / {totalPlayers}";
+        readyPlayerText.text = $"Number of players ready: {lobbyInfo.ReadyPlayerCount} / {lobbyInfo.PlayerCount}";
     }
 
     void OnReadyButtonClicked()
@@ -46,19 +94,25 @@ public class GameLobbyManager : MonoBehaviour
         if (!isPlayerReady)
         {
             // Player becomes ready
+            myapi = GameClientAPI.GetInstance();
             isPlayerReady = true;
-            readyPlayers++;
+            string prefix = "lobbyModify";
+            string name = lobbyInfo.LobbyName;
+            string field = "readyplayercount";
+            int val = ++lobbyInfo.ReadyPlayerCount;
+            string value = val.ToString();
+            myapi.sendTCPMessage2Server(prefix + " " + name + " " + field + " " + value);//notify the server about the change to broadcast updates
 
             // Update UI
-            readyButton.interactable = false; // Disable ready button
-            backButton.interactable = false; // Grey out back button
-            cancelButton.gameObject.SetActive(true); // Show cancel button
+            readyButton.interactable = false;
+            backButton.interactable = false;
+            cancelButton.gameObject.SetActive(true);
 
             // Update the ready player count
             UpdateReadyPlayerText();
 
             // Check if game can begin
-            if (readyPlayers >= totalPlayers && readyPlayers >= 1)
+            if (lobbyInfo.ReadyPlayerCount >= lobbyInfo.PlayerCount && lobbyInfo.ReadyPlayerCount >= 2)
             {
                 BeginGame();
             }
@@ -71,7 +125,12 @@ public class GameLobbyManager : MonoBehaviour
         {
             // Player cancels readiness
             isPlayerReady = false;
-            readyPlayers--;
+            string prefix = "lobbyModify";
+            string name = lobbyInfo.LobbyName;
+            string field = "readyplayercount";
+            int val = --lobbyInfo.ReadyPlayerCount;
+            string value = val.ToString();
+            myapi.sendTCPMessage2Server(prefix + " " + name + " " + field + " " + value);//notify the server about the change to broadcast updates
 
             // Update UI
             readyButton.interactable = true; // Enable ready button
@@ -85,10 +144,17 @@ public class GameLobbyManager : MonoBehaviour
 
     void OnBackButtonClicked()
     {
+        myapi = GameClientAPI.GetInstance();
         // Decrease the player count
-        if (totalPlayers > 0)
+        if (lobbyInfo.PlayerCount > 0)
         {
-            totalPlayers--;
+            string prefix = "lobbyModify";
+            string name = lobbyInfo.LobbyName;
+            string field = "playercount";
+            int val = --lobbyInfo.PlayerCount;
+            string value = val.ToString();
+            myapi.sendTCPMessage2Server(prefix + " " + name + " " + field + " " + value);//notify the server about the change to broadcast updates
+            Debug.Log(prefix + " " + name + " " + field + " " + value);
             UpdateReadyPlayerText(); // Update the UI to reflect the new count
         }
 
@@ -96,19 +162,15 @@ public class GameLobbyManager : MonoBehaviour
         if (lobbyCenterCanvas != null)
         {
             // Update the player count in the lobby prefab
-            Lobby currentLobbyInfo = FindObjectOfType<Lobby>(); // Assuming one lobby at a time
+            /*Lobby currentLobbyInfo = FindObjectOfType<Lobby>(); // Assuming one lobby at a time
             if (currentLobbyInfo != null)
             {
-                currentLobbyInfo.TotalPlayers = totalPlayers; // Update the count in LobbyInfo
+                currentLobbyInfo.lobbyInfo.PlayerCount = totalPlayers; // Update the count in LobbyInfo
                 currentLobbyInfo.playerCountText.text = $"Player Count: {totalPlayers}/{currentLobbyInfo.MaxPlayers}";
-            }
+            }*/
 
             // Switch back to the Lobby Center Canvas
             lobbyCenterCanvas.SetActive(true);
-        }
-        else
-        {
-            Debug.LogError("LobbyCenterCanvas is not assigned in the Inspector!");
         }
 
         // Then disable the current LobbyCanvas
@@ -116,12 +178,6 @@ public class GameLobbyManager : MonoBehaviour
         {
             lobbyCanvas.SetActive(false);
         }
-        else
-        {
-            Debug.LogError("LobbyCanvas is not assigned in the Inspector!");
-        }
-
-        Debug.Log("Player left the lobby. Total players decreased by 1.");
     }
 
 
@@ -131,7 +187,9 @@ public class GameLobbyManager : MonoBehaviour
         GameClientAPI myapi = GameClientAPI.GetInstance();
         // Ensure the target scene is added to the build settings
         string gameSceneName = "GameScene"; // Replace with your game scene's name
-        myapi.sendTCPMessage2Server("startGame");
+        int randomNumber = Random.Range(0, 1001);
+        Thread.Sleep(randomNumber);
+        myapi.sendTCPMessage2Server("startGame " + myapi.ThisUser.UserName + " "+ lobbyInfo.LobbyName);
         if (SceneManager.GetSceneByName(gameSceneName) != null)
         {
             // Load the game scene
@@ -143,46 +201,13 @@ public class GameLobbyManager : MonoBehaviour
         }
     }
 
-    // Call this method when a player enters the lobby
-    public void PlayerEnteredLobby()
-    {
-        totalPlayers++; // Increment total players in the lobby
-        UpdateReadyPlayerText(); // Update the UI to reflect the new count
-    }
-
-    // *** New Methods Below ***
-
-    // Call this method when a player leaves the lobby
-    public void PlayerLeftLobby()
-    {
-        if (totalPlayers > 0)
-        {
-            totalPlayers--; // Decrement total players
-            if (readyPlayers > totalPlayers) readyPlayers = totalPlayers; // Adjust ready players if needed
-            UpdateReadyPlayerText(); // Update the UI
-        }
-    }
-
     // Dynamically set the lobby details (e.g., total players)
     public void SetLobbyDetails(int newTotalPlayers, int initialReadyPlayers = 0)
     {
-        totalPlayers = newTotalPlayers;
-        readyPlayers = Mathf.Clamp(initialReadyPlayers, 0, totalPlayers); // Ensure readyPlayers is valid
+        lobbyInfo.PlayerCount = newTotalPlayers;
+        lobbyInfo.ReadyPlayerCount = Mathf.Clamp(initialReadyPlayers, 0, lobbyInfo.PlayerCount); // Ensure readyPlayers is valid
         UpdateReadyPlayerText(); // Update UI to reflect new details
     }
 
     // Resets the lobby state when leaving
-    public void ResetLobbyState()
-    {
-        // Reset game state
-        isPlayerReady = false;
-        readyPlayers = 0;
-
-        // Reset UI elements
-        readyButton.interactable = true;
-        backButton.interactable = true;
-        cancelButton.gameObject.SetActive(false); // Hide cancel button
-
-        UpdateReadyPlayerText(); // Update ready player count text
-    }
 }
